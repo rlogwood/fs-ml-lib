@@ -1,0 +1,7 @@
+tmp
+retired
+.idea
+__pycache__/
+*~
+*.pyc
+.pytest_cache
