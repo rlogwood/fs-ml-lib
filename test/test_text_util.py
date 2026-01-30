@@ -5,12 +5,14 @@ def test_something(capsys):
     tu.demo_text_print()
     captured = capsys.readouterr()
     expected_text = (
-        "\x1b[31mShow Red\x1b[0m\n"
-        "\x1b[1mShow Bold\x1b[0m\n"
-        "\x1b[1;3m\x1b[33mShow Combo Yellow, Italic, Bold\x1b[0m\x1b[0m\n"
-        "\x1b[1;34mShow Bold and Blue\x1b[0m\n"
+        "Running as a notebook:False\n"
+        "Running inside in pycharm:True\n"
+        "Running inside a pycharm notebook:False\n"
+        "styled_display uses HTML for styling text output.\n"
+        "[31mShow Red[0m\n"
+        "[1mShow Bold[0m\n"
+        "[1m[3m[33mShow Combo Yellow, Italic, Bold[0m[0m\n"
+        "[1m[34mShow Bold and Blue[0m\n"
         "<IPython.core.display.HTML object>\n"
     )
     assert captured.out == expected_text
-
-
