@@ -21,6 +21,11 @@ Usage in notebooks:
     from lib.notebook_setup import setup_notebook
     setup_notebook()
 
+    # Step 3: Enable PyCharm IntelliSense (optional, but recommended for IDE users)
+    need_pycharm_intellisense = False
+    if need_pycharm_intellisense:
+        from lib.notebook_stubs import *
+
 Custom Import Profiles:
     You can create a .notebook_imports.json file to customize imports per notebook:
     {
