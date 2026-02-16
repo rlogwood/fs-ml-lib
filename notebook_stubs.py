@@ -31,6 +31,7 @@ import json
 # Data science
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 
 # Deep Learning
 import tensorflow as tf
@@ -72,7 +73,7 @@ import lib.class_imbalance as cib
 # Export all for 'from notebook_stubs import *'
 __all__ = [
     'os', 'sys', 'zipfile', 'warnings', 'json',
-    'np', 'pd',
+    'np', 'pd', 'xgb',
     'tf', 'keras', 'Sequential', 'Model',
     'Dense', 'Dropout', 'BatchNormalization',
     'GlobalAveragePooling2D', 'Flatten', 'Input',

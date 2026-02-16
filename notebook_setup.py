@@ -175,6 +175,7 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
     import numpy as np
     import pandas as pd
     import zipfile
+    import xgboost as xgb
 
     # Collect all modules for injection
     modules_to_inject = {
@@ -182,7 +183,8 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
         'pd': pd,
         'os': os,
         'zipfile': zipfile,
-        'warnings': warnings
+        'warnings': warnings,
+        'xgb': xgb
     }
 
     # Deep Learning imports (conditional)
