@@ -47,7 +47,8 @@ from tensorflow.keras.applications import VGG16, MobileNetV2, ResNet50
 
 # Machine Learning
 from sklearn.metrics import (confusion_matrix, classification_report, accuracy_score,
-                              precision_score, recall_score, f1_score, roc_auc_score, roc_curve)
+                              precision_score, recall_score, f1_score, roc_auc_score, roc_curve,
+                              precision_recall_curve)
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
@@ -79,7 +80,7 @@ __all__ = [
     'ImageDataGenerator', 'VGG16', 'MobileNetV2', 'ResNet50',
     'confusion_matrix', 'classification_report', 'accuracy_score',
     'precision_score', 'recall_score', 'f1_score', 'roc_auc_score', 'roc_curve',
-    'LabelEncoder', 'StandardScaler', 'train_test_split', 'compute_class_weight',
+    'precision_recall_curve', 'LabelEncoder', 'StandardScaler', 'train_test_split', 'compute_class_weight',
     'plt', 'sns', 'Image', 'display', 'HTML',
     'tu', 'wr', 'dc', 'da', 'ca', 'utl', 'ddl', 'cib'
 ]

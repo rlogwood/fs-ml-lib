@@ -221,7 +221,8 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
     # Sklearn imports (conditional)
     if not config.get('skip_sklearn', False):
         from sklearn.metrics import (confusion_matrix, classification_report, accuracy_score,
-                                      precision_score, recall_score, f1_score, roc_auc_score, roc_curve)
+                                      precision_score, recall_score, f1_score, roc_auc_score, roc_curve,
+                                      precision_recall_curve)
         from sklearn.preprocessing import LabelEncoder, StandardScaler
         from sklearn.model_selection import train_test_split
         from sklearn.utils.class_weight import compute_class_weight
@@ -234,6 +235,7 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
             'f1_score': f1_score,
             'roc_auc_score': roc_auc_score,
             'roc_curve': roc_curve,
+            'precision_recall_curve': precision_recall_curve,
             'LabelEncoder': LabelEncoder,
             'StandardScaler': StandardScaler,
             'train_test_split': train_test_split,
