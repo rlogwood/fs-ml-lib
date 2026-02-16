@@ -224,6 +224,7 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
                                       precision_score, recall_score, f1_score, roc_auc_score, roc_curve)
         from sklearn.preprocessing import LabelEncoder, StandardScaler
         from sklearn.model_selection import train_test_split
+        from sklearn.utils.class_weight import compute_class_weight
         modules_to_inject.update({
             'confusion_matrix': confusion_matrix,
             'classification_report': classification_report,
@@ -235,7 +236,8 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
             'roc_curve': roc_curve,
             'LabelEncoder': LabelEncoder,
             'StandardScaler': StandardScaler,
-            'train_test_split': train_test_split
+            'train_test_split': train_test_split,
+            'compute_class_weight': compute_class_weight
         })
 
     # Visualization (conditional)
