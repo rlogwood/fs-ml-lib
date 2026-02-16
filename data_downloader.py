@@ -1,5 +1,4 @@
 import os
-import gdown
 from textwrap import dedent
 
 def is_colab():
@@ -17,6 +16,14 @@ def get_data_dir():
 
 def download_data_files(folder_id, data_dir):
     print("Downloading from Drive folder...")
+    try:
+        import gdown
+    except ImportError:
+        import subprocess
+        print("Installing gdown...")
+        subprocess.check_call(['pip', 'install', 'gdown'])
+        import gdown
+
     url = f'https://drive.google.com/drive/folders/{folder_id}'
     gdown.download_folder(url, output=data_dir, quiet=False, use_cookies=False)
 
