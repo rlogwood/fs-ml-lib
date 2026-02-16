@@ -47,6 +47,7 @@ from tensorflow.keras.applications import VGG16, MobileNetV2, ResNet50
 
 # Machine Learning
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.preprocessing import LabelEncoder
 
 # Visualization
 import matplotlib.pyplot as plt
@@ -72,7 +73,7 @@ __all__ = [
     'GlobalAveragePooling2D', 'Flatten', 'Input',
     'Adam', 'EarlyStopping', 'ReduceLROnPlateau', 'ModelCheckpoint',
     'ImageDataGenerator', 'VGG16', 'MobileNetV2', 'ResNet50',
-    'confusion_matrix', 'classification_report', 'accuracy_score',
+    'confusion_matrix', 'classification_report', 'accuracy_score', 'LabelEncoder',
     'plt', 'sns', 'Image', 'display', 'HTML',
     'tu', 'wr', 'dc', 'da', 'ca', 'utl', 'ddl'
 ]
