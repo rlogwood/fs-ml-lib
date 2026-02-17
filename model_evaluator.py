@@ -181,7 +181,7 @@ def print_classification_metrics(y_true, y_pred, y_pred_proba=None, labels=['Pai
         print(f"  AUC-ROC:              {auc_score:.4f}")
 
 
-def test_plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8), usr_title=None):
+def plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8), usr_title=None):
     """
     Plot ROC curve with AUC score.
 
