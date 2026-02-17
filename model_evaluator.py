@@ -181,7 +181,7 @@ def print_classification_metrics(y_true, y_pred, y_pred_proba=None, labels=['Pai
         print(f"  AUC-ROC:              {auc_score:.4f}")
 
 
-def plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8)):
+def test_plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8), usr_title=None):
     """
     Plot ROC curve with AUC score.
 
@@ -215,13 +215,18 @@ def plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8)):
 
     ax.plot(fpr, tpr, color='darkorange', lw=2,
             label=f'ROC curve (AUC = {roc_auc:.4f})')
-    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Classifier')
+    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Classifier (AUC = 0.5000)')
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.05])
-    ax.set_xlabel('False Positive Rate', fontsize=12)
-    ax.set_ylabel('True Positive Rate (Recall)', fontsize=12)
+    ax.set_xlabel('False Positive Rate', fontsize=14, fontweight='bold')
+    ax.set_ylabel('True Positive Rate (Recall)', fontsize=14, fontweight='bold')
     ax.set_title('Receiver Operating Characteristic (ROC) Curve',
                 fontsize=14, fontweight='bold')
+    title = "ROC Curve"
+    if usr_title:
+        title += f" - {usr_title}"
+
+    plt.title(title, fontsize=16, fontweight='bold', pad=20)
     ax.legend(loc="lower right", fontsize=11)
     ax.grid(True, alpha=0.3)
 
@@ -241,7 +246,7 @@ def plot_roc_curve(y_true, y_pred_proba, figsize=(10, 8)):
     return fig, roc_auc
 
 
-def plot_precision_recall_curve(y_true, y_pred_proba, figsize=(10, 8), title=""):
+def plot_precision_recall_curve(y_true, y_pred_proba, y_test, figsize=(10, 8), usr_title=None):
     """
     Plot Precision-Recall curve.
 
@@ -270,20 +275,25 @@ def plot_precision_recall_curve(y_true, y_pred_proba, figsize=(10, 8), title="")
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    if title:
-        ax.set_title(title, fontsize=14, fontweight='bold')
-
     ax.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
-    ax.set_xlabel('Recall', fontsize=12)
-    ax.set_ylabel('Precision', fontsize=12)
-    ax.set_title('Precision-Recall Curve', fontsize=14, fontweight='bold')
-    ax.set_xlim([0.0, 1.0])
-    ax.set_ylim([0.0, 1.05])
+
+    plt.axhline(y=y_test.sum() / len(y_test), color='red', linestyle='--', linewidth=2,
+                label=f'Baseline (No Skill) = {y_test.sum() / len(y_test):.4f}')
+
+    ax.set_xlabel('Recall (Sensitivity)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Precision', fontsize=14, fontweight='bold')
+    title = "Precision-Recall Curve"
+    if usr_title is not None:
+        title += f" - {usr_title}"
+
+    ax.set_title(title, fontsize=16, fontweight='bold')
+    #ax.set_xlim([0.0, 1.0])
+    #ax.set_ylim([0.0, 1.05])
     ax.legend(loc="upper right", fontsize=11)
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-
+    #plt.show()
     print("\n+ Precision-Recall curve plotted")
 
     return fig
