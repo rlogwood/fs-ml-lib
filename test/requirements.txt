@@ -3,3 +3,4 @@ pandas
 pytest
 numpy
 scipy
+imbalanced-learn
