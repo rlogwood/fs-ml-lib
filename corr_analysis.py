@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from pprint import pprint
 from scipy.sparse import coo_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 #import text_util as tu
 # class_imbalance.py
@@ -112,3 +114,75 @@ def drop_highly_correlated_features(df: pd.DataFrame, target_col: str, correlati
     return df, features_to_drop
     #print("\nRemaining features:")
     #print(df.columns.tolist())
+
+
+def analyze_correlation(df, target_col=None, figsize=(14, 10),
+                        cmap='coolwarm', fmt='.2f',
+                        mask_upper=True, print_target_corr=True):
+    """
+    Perform correlation analysis on numeric features and visualize with heatmap.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Input dataframe
+    target_col : str, optional
+        Target column name to show correlations with. If None, no target correlation printed.
+    figsize : tuple, default=(14, 10)
+        Figure size for the heatmap
+    cmap : str, default='coolwarm'
+        Colormap for the heatmap
+    fmt : str, default='.2f'
+        String formatting for annotation values
+    mask_upper : bool, default=True
+        Whether to mask the upper triangle of the correlation matrix
+    print_target_corr : bool, default=True
+        Whether to print correlation with target variable
+
+    Returns:
+    --------
+    correlation_matrix : pd.DataFrame
+        Correlation matrix of numeric features
+    target_corr : pd.Series or None
+        Correlation with target variable (if target_col provided)
+    """
+    # Select numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    correlation_matrix = df[numeric_cols].corr()
+
+    # Print correlation with target if specified
+    target_corr = None
+    if target_col and target_col in correlation_matrix.columns and print_target_corr:
+        target_corr = correlation_matrix[target_col].sort_values(ascending=False)
+        print(f"\nCorrelation with Target ({target_col}):")
+        print(target_corr)
+
+    # Create visualization
+    plt.figure(figsize=figsize)
+
+    # Create mask for upper triangle if requested
+    mask = None
+    if mask_upper:
+        mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
+
+    # Create heatmap
+    ax = sns.heatmap(
+        correlation_matrix,
+        mask=mask,
+        annot=True,
+        fmt=fmt,
+        cmap=cmap,
+        center=0,
+        square=True,
+        linewidths=1,
+        cbar_kws={"shrink": 0.8},
+    )
+
+    if mask_upper:
+        ax.set_facecolor("white")  # hide the upper half of the heatmap
+
+    plt.title('Feature Correlation Matrix', fontsize=16, fontweight='bold', pad=20)
+    plt.tight_layout()
+    plt.show()
+
+    return correlation_matrix, target_corr
