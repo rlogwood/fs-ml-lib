@@ -277,6 +277,7 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
     import lib.feature_engineering as fe
     import lib.model_evaluator as me
     import lib.model_trainer as mt
+    import lib.loan_analysis as la
 
     modules_to_inject.update({
         'tu': tu,
@@ -289,7 +290,8 @@ def setup_notebook(show_versions=True, show_imports=False, config_file=None):
         'cib': cib,
         'fe': fe,
         'me': me,
-        'mt': mt
+        'mt': mt,
+        'la': la
     })
 
     # Reload modules after code changes
