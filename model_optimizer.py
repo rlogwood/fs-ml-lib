@@ -37,6 +37,28 @@ class ImbalanceStrategy(Enum):
         return self.value
 
 
+class OptimizationMetric(Enum):
+    """
+    Enumeration of available optimization metrics.
+
+    Metrics:
+    --------
+    ACCURACY : Classification accuracy
+    PRECISION : Precision score
+    RECALL : Recall score
+    F1 : F1 score (harmonic mean of precision and recall)
+    ROC_AUC : Area under the ROC curve
+    """
+    ACCURACY = "accuracy"
+    PRECISION = "precision"
+    RECALL = "recall"
+    F1 = "f1"
+    ROC_AUC = "roc_auc"
+
+    def __str__(self):
+        return self.value
+
+
 @dataclass
 class ImbalanceTrainingResult:
     """Results from training with imbalance handling"""
@@ -125,7 +147,8 @@ def train_with_imbalance_handling(
         callbacks=None,
         random_state=42,
         train_fn=None,
-        verbose=True
+        verbose=True,
+        model_verbosity=1
 ):
     """
     Train a model with different imbalance handling strategies.
@@ -249,12 +272,12 @@ def train_with_imbalance_handling(
             from model_trainer import train_model_with_class_weights
         history = train_model_with_class_weights(
             model, X_train_final, y_train_final, X_val, y_val,
-            weights, epochs=epochs, callbacks=callbacks
+            weights, epochs=epochs, callbacks=callbacks, model_verbosity=model_verbosity
         )
     else:
         history = train_fn(
             model, X_train_final, y_train_final, X_val, y_val,
-            weights, epochs, callbacks
+            weights, epochs, callbacks, model_verbosity=model_verbosity
         )
 
     # Calculate validation metrics
@@ -317,12 +340,13 @@ def optimize_imbalance_strategy(
         y_val,
         strategies: Optional[List[Union[ImbalanceStrategy, str]]] = None,
         smote_ratios=None,
-        optimize_for='f1',
+        optimize_for: Union[OptimizationMetric, str] = OptimizationMetric.F1,
         epochs=50,
         callbacks=None,
         random_state=42,
         train_fn=None,
-        verbose=True
+        verbose=True,
+        model_verbosity=1
 ) -> OptimizationComparison:
     """
     Run all imbalance handling strategies and compare results.
@@ -340,8 +364,13 @@ def optimize_imbalance_strategy(
         List of strategies to try (enum or string values). If None, tries all strategies.
     smote_ratios : list, optional
         List of SMOTE ratios to try for partial strategies
-    optimize_for : str
-        Metric to optimize ('accuracy', 'precision', 'recall', 'f1', 'roc_auc')
+    optimize_for : OptimizationMetric or str
+        Metric to optimize (use OptimizationMetric enum or string):
+        - OptimizationMetric.ACCURACY or 'accuracy': Classification accuracy
+        - OptimizationMetric.PRECISION or 'precision': Precision score
+        - OptimizationMetric.RECALL or 'recall': Recall score
+        - OptimizationMetric.F1 or 'f1': F1 score
+        - OptimizationMetric.ROC_AUC or 'roc_auc': Area under ROC curve
     epochs : int
         Training epochs per strategy
     callbacks : list, optional
@@ -359,6 +388,20 @@ def optimize_imbalance_strategy(
     OptimizationComparison
         Comparison results with best strategy identified
     """
+
+    # Convert string to enum if needed for optimize_for
+    if isinstance(optimize_for, str):
+        try:
+            optimize_for = OptimizationMetric(optimize_for)
+        except ValueError:
+            valid_metrics = [m.value for m in OptimizationMetric]
+            raise ValueError(
+                f"Unknown metric: {optimize_for}. "
+                f"Choose from: {', '.join(valid_metrics)}"
+            )
+
+    # Convert to string for DataFrame operations
+    optimize_for_str = optimize_for.value if isinstance(optimize_for, OptimizationMetric) else optimize_for
 
     if strategies is None:
         strategies = [
@@ -385,7 +428,7 @@ def optimize_imbalance_strategy(
 
     print(f"\n{'=' * 70}")
     print(f"🔬 OPTIMIZING IMBALANCE HANDLING STRATEGY")
-    print(f"   Optimizing for: {optimize_for}")
+    print(f"   Optimizing for: {optimize_for_str}")
     print(f"   Strategies to test: {len(strategies)}")
     print(f"{'=' * 70}\n")
 
@@ -417,7 +460,8 @@ def optimize_imbalance_strategy(
             callbacks=callbacks,
             random_state=random_state,
             train_fn=train_fn,
-            verbose=verbose
+            verbose=verbose,
+            model_verbosity=model_verbosity
         )
 
         # Store results using string key for consistent DataFrame handling
@@ -425,7 +469,7 @@ def optimize_imbalance_strategy(
         results[strategy_key] = result
 
         if verbose:
-            print(f"   ✓ {optimize_for}: {result.val_metrics[optimize_for]:.4f}")
+            print(f"   ✓ {optimize_for_str}: {result.val_metrics[optimize_for_str]:.4f}")
 
     # Create comparison DataFrame
     comparison_data = []
@@ -439,18 +483,18 @@ def optimize_imbalance_strategy(
 
     comparison_df = pd.DataFrame(comparison_data)
     comparison_df = comparison_df.set_index('strategy')
-    comparison_df = comparison_df.sort_values(by=optimize_for, ascending=False)
+    comparison_df = comparison_df.sort_values(by=optimize_for_str, ascending=False)
 
     # Identify best strategy
     best_strategy = comparison_df.index[0]
-    ranking = [(idx, row[optimize_for]) for idx, row in comparison_df.iterrows()]
+    ranking = [(idx, row[optimize_for_str]) for idx, row in comparison_df.iterrows()]
 
     # Create comparison object
     comparison = OptimizationComparison(
         results=results,
         comparison_df=comparison_df,
         best_strategy=best_strategy,
-        best_metric=optimize_for,
+        best_metric=optimize_for_str,
         ranking=ranking
     )
 

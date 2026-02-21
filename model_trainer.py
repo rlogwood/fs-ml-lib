@@ -13,6 +13,26 @@ try:
 except ImportError:
     import text_util as tu
 
+# Define F1 metric class (Keras doesn't have built-in F1)
+class F1Score(tf.keras.metrics.Metric):
+    def __init__(self, name='f1', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.precision = Precision()
+        self.recall = Recall()
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        self.precision.update_state(y_true, y_pred, sample_weight)
+        self.recall.update_state(y_true, y_pred, sample_weight)
+
+    def result(self):
+        p = self.precision.result()
+        r = self.recall.result()
+        return 2 * ((p * r) / (p + r + tf.keras.backend.epsilon()))
+
+    def reset_state(self):
+        self.precision.reset_state()
+        self.recall.reset_state()
+
 def calculate_class_weights(y_train, class_names=None):
     """
     Calculate balanced class weights for imbalanced datasets.
@@ -165,7 +185,8 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
             'accuracy',
             keras.metrics.AUC(name='auc'),
             keras.metrics.Precision(name='precision'),
-            keras.metrics.Recall(name='recall')
+            keras.metrics.Recall(name='recall'),
+            F1Score(name='f1')
         ]
     )
 
@@ -176,7 +197,7 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
 
     return model
 
-def create_early_stopping(patience=5, monitor='val_auc', mode='max', verbose=1):
+def create_early_stopping(patience=5, monitor='val_auc', mode='max', verbose=1, restore_best_weights=True):
     """
     Create early stopping callback for training.
 
@@ -206,7 +227,7 @@ def create_early_stopping(patience=5, monitor='val_auc', mode='max', verbose=1):
     return EarlyStopping(
         monitor=monitor,
         patience=patience,
-        restore_best_weights=True,
+        restore_best_weights=restore_best_weights,
         mode=mode,
         verbose=verbose
     )
@@ -270,6 +291,7 @@ def train_model_with_class_weights(
     if callbacks is None:
         callbacks = []
 
+    model_verbosity = 0
     history = model.fit(
         X_train,
         y_train,
@@ -278,7 +300,7 @@ def train_model_with_class_weights(
         batch_size=batch_size,
         class_weight=class_weights,
         callbacks=callbacks,
-        verbose=verbose
+        verbose=model_verbosity
     )
 
     return history
