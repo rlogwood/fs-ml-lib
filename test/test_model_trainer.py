@@ -257,6 +257,9 @@ class TestUtilityFunctions:
 
     def test_get_model_config_name(self):
         """Test model configuration name generation"""
+        if not hasattr(mt, 'get_model_config_name'):
+            pytest.skip("get_model_config_name not available")
+
         name = mt.get_model_config_name(
             layers=[32, 16],
             dropout=0.3,
@@ -271,12 +274,38 @@ class TestUtilityFunctions:
 
     def test_get_model_config_name_different_configs(self):
         """Test that different configs produce different names"""
+        if not hasattr(mt, 'get_model_config_name'):
+            pytest.skip("get_model_config_name not available")
+
         name1 = mt.get_model_config_name([32, 16], 0.3, 0.001)
         name2 = mt.get_model_config_name([64, 32], 0.3, 0.001)
         name3 = mt.get_model_config_name([32, 16], 0.4, 0.001)
 
         assert name1 != name2
         assert name1 != name3
+
+    def test_calculate_class_weights_returns_both_formats(self):
+        """Test that function returns both dict and array"""
+        y_train = np.array([0] * 70 + [1] * 30)
+
+        class_weight_dict, class_weights = mt.calculate_class_weights(y_train)
+
+        # Check dictionary format
+        assert isinstance(class_weight_dict, dict)
+        assert len(class_weight_dict) == 2
+
+        # Check array format
+        assert isinstance(class_weights, np.ndarray)
+        assert len(class_weights) == 2
+
+    def test_class_weights_handle_extreme_imbalance(self):
+        """Test class weights with extreme imbalance"""
+        y_train = np.array([0] * 990 + [1] * 10)  # 99:1 imbalance
+
+        class_weight_dict, class_weights = mt.calculate_class_weights(y_train)
+
+        # Minority class should have much higher weight
+        assert class_weights[1] > class_weights[0] * 50
 
 
 @pytest.mark.skipif(

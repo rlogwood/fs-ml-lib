@@ -107,10 +107,10 @@ def clean_object_columns(
 
     # Determine which columns to process
     if columns is None:
-        columns = result.select_dtypes(include=['object', 'category']).columns.tolist()
+        columns = result.select_dtypes(include=['object', 'category', 'string']).columns.tolist()
     else:
         # Filter to only object/category columns that exist
-        valid_cols = result.select_dtypes(include=['object', 'category']).columns
+        valid_cols = result.select_dtypes(include=['object', 'category', 'string']).columns
         columns = [col for col in columns if col in valid_cols]
 
     if not columns:

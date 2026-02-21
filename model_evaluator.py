@@ -65,6 +65,8 @@ def plot_class_distribution_analysis(df, target_col, labels=None):
 
     plt.tight_layout()
     plt.show()
+    return fig
+
 
 def plot_training_history(history, metrics=['loss', 'accuracy', 'precision', 'recall', 'auc']):
     """

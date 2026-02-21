@@ -260,7 +260,7 @@ def prepare_data_for_training(df, target_col, categorical_cols=None,
 
     # 1. Encode categorical variables
     if categorical_cols is None:
-        categorical_cols = df_work.select_dtypes(include=['object', 'category']).columns.tolist()
+        categorical_cols = df_work.select_dtypes(include=['object', 'category', 'string']).columns.tolist()
         # Remove target if it's in categorical columns
         if target_col in categorical_cols:
             categorical_cols.remove(target_col)

@@ -243,7 +243,10 @@ def train_with_imbalance_handling(
     # Train model using provided function or default
     if train_fn is None:
         # Import here to avoid circular dependency
-        from lib.model_trainer import train_model_with_class_weights
+        try:
+            from lib.model_trainer import train_model_with_class_weights
+        except ImportError:
+            from model_trainer import train_model_with_class_weights
         history = train_model_with_class_weights(
             model, X_train_final, y_train_final, X_val, y_val,
             weights, epochs=epochs, callbacks=callbacks
@@ -255,8 +258,27 @@ def train_with_imbalance_handling(
         )
 
     # Calculate validation metrics
-    y_val_pred = (model.predict(X_val, verbose=0) > 0.5).astype(int).flatten()
-    y_val_pred_proba = model.predict(X_val, verbose=0).flatten()
+    # Handle both Keras models (accept verbose) and sklearn models (don't accept verbose)
+    try:
+        y_val_pred_raw = model.predict(X_val, verbose=0)
+    except TypeError:
+        # sklearn models don't accept verbose parameter
+        y_val_pred_raw = model.predict(X_val)
+
+    # Handle prediction format differences between Keras and sklearn
+    # Check if this is a real sklearn model (not a mock) by checking for sklearn's base class
+    is_sklearn_model = (hasattr(model, 'predict_proba') and
+                       hasattr(model, '_estimator_type') and
+                       model._estimator_type == 'classifier')
+
+    if is_sklearn_model:
+        # sklearn classifier - use predict_proba for probabilities
+        y_val_pred = model.predict(X_val)
+        y_val_pred_proba = model.predict_proba(X_val)[:, 1]  # probability of positive class
+    else:
+        # Keras model or Mock - predictions are already probabilities
+        y_val_pred = (y_val_pred_raw > 0.5).astype(int).flatten()
+        y_val_pred_proba = y_val_pred_raw.flatten()
 
     val_metrics = {
         'accuracy': accuracy_score(y_val, y_val_pred),
@@ -299,6 +321,7 @@ def optimize_imbalance_strategy(
         epochs=50,
         callbacks=None,
         random_state=42,
+        train_fn=None,
         verbose=True
 ) -> OptimizationComparison:
     """
@@ -325,6 +348,9 @@ def optimize_imbalance_strategy(
         Keras callbacks
     random_state : int
         Random seed
+    train_fn : callable, optional
+        Custom training function. If None, uses default Keras training.
+        Signature: train_fn(model, X_train, y_train, X_val, y_val, class_weights, epochs, callbacks)
     verbose : bool
         Print progress
 
@@ -390,6 +416,7 @@ def optimize_imbalance_strategy(
             epochs=epochs,
             callbacks=callbacks,
             random_state=random_state,
+            train_fn=train_fn,
             verbose=verbose
         )
 
