@@ -189,7 +189,7 @@ def validate_features_for_engineering(df):
 def prepare_data_for_training(df, target_col, categorical_cols=None,
                               test_size=0.3, val_size=0.2,
                               scale_features=True, random_state=42,
-                              stratify=True, verbose=True):
+                              stratify=True, verbose=True) -> PreparedData:
     """
     Prepare data for machine learning by encoding, splitting, and scaling.
 

@@ -300,7 +300,7 @@ def optimize_imbalance_strategy(
         callbacks=None,
         random_state=42,
         verbose=True
-):
+) -> OptimizationComparison:
     """
     Run all imbalance handling strategies and compare results.
 
