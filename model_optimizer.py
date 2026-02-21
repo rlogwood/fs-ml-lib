@@ -3,7 +3,8 @@ model_optimizer.py - Automated model optimization and comparison
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Union
+from enum import Enum
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
@@ -14,10 +15,32 @@ from sklearn.utils.class_weight import compute_class_weight
 from imblearn.over_sampling import SMOTE
 
 
+class ImbalanceStrategy(Enum):
+    """
+    Enumeration of available imbalance handling strategies.
+
+    Strategies:
+    -----------
+    NONE : No imbalance handling
+    SMOTE_FULL : Full SMOTE oversampling (1:1 balance)
+    SMOTE_PARTIAL : Partial SMOTE oversampling (custom ratio)
+    CLASS_WEIGHTS : Use class weights only
+    SMOTE_PARTIAL_WEIGHTS : Combined SMOTE + class weights
+    """
+    NONE = "none"
+    SMOTE_FULL = "smote_full"
+    SMOTE_PARTIAL = "smote_partial"
+    CLASS_WEIGHTS = "class_weights"
+    SMOTE_PARTIAL_WEIGHTS = "smote_partial+weights"
+
+    def __str__(self):
+        return self.value
+
+
 @dataclass
 class ImbalanceTrainingResult:
     """Results from training with imbalance handling"""
-    strategy: str
+    strategy: Union[ImbalanceStrategy, str]
     history: Any
     model: Any
     X_train_final: np.ndarray
@@ -36,8 +59,9 @@ class ImbalanceTrainingResult:
 
     def summary(self):
         """Print a summary of the training configuration"""
+        strategy_name = self.strategy.value if isinstance(self.strategy, ImbalanceStrategy) else self.strategy
         print(f"\n{'=' * 70}")
-        print(f"IMBALANCE HANDLING SUMMARY: {self.strategy}")
+        print(f"IMBALANCE HANDLING SUMMARY: {strategy_name}")
         print(f"{'=' * 70}")
         print(f"Samples: {self.samples_before:,} → {self.samples_after:,}")
         print(f"\nClass Distribution Before:")
@@ -93,7 +117,7 @@ def train_with_imbalance_handling(
         y_train,
         X_val,
         y_val,
-        strategy='smote_partial',
+        strategy: Union[ImbalanceStrategy, str] = ImbalanceStrategy.SMOTE_PARTIAL,
         smote_ratio=0.5,
         class_weight_dict=None,
         auto_calculate_weights=True,
@@ -114,13 +138,13 @@ def train_with_imbalance_handling(
         Training data
     X_val, y_val : array-like
         Validation data
-    strategy : str
-        Imbalance handling strategy:
-        - 'none': No imbalance handling
-        - 'smote_full': Full SMOTE (1:1 balance)
-        - 'smote_partial': Partial SMOTE (custom ratio)
-        - 'class_weights': Only class weights
-        - 'smote_partial+weights': Combined approach
+    strategy : ImbalanceStrategy or str
+        Imbalance handling strategy (use ImbalanceStrategy enum or string):
+        - ImbalanceStrategy.NONE or 'none': No imbalance handling
+        - ImbalanceStrategy.SMOTE_FULL or 'smote_full': Full SMOTE (1:1 balance)
+        - ImbalanceStrategy.SMOTE_PARTIAL or 'smote_partial': Partial SMOTE (custom ratio)
+        - ImbalanceStrategy.CLASS_WEIGHTS or 'class_weights': Only class weights
+        - ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS or 'smote_partial+weights': Combined approach
     smote_ratio : float
         Ratio for partial SMOTE (default 0.5)
     class_weight_dict : dict, optional
@@ -144,6 +168,17 @@ def train_with_imbalance_handling(
         Dataclass containing all training results and metadata
     """
 
+    # Convert string to enum if needed
+    if isinstance(strategy, str):
+        try:
+            strategy = ImbalanceStrategy(strategy)
+        except ValueError:
+            valid_strategies = [s.value for s in ImbalanceStrategy]
+            raise ValueError(
+                f"Unknown strategy: {strategy}. "
+                f"Choose from: {', '.join(valid_strategies)}"
+            )
+
     # Store original data info
     samples_before = len(X_train)
     unique, counts = np.unique(y_train, return_counts=True)
@@ -151,7 +186,7 @@ def train_with_imbalance_handling(
 
     # Calculate class weights if needed
     if auto_calculate_weights and class_weight_dict is None:
-        if strategy in ['class_weights', 'smote_partial+weights']:
+        if strategy in [ImbalanceStrategy.CLASS_WEIGHTS, ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS]:
             classes = np.unique(y_train)
             weights = compute_class_weight('balanced', classes=classes, y=y_train)
             class_weight_dict = dict(zip(classes.astype(int), weights))
@@ -159,39 +194,39 @@ def train_with_imbalance_handling(
                 print(f"\n📊 Auto-calculated class weights: {class_weight_dict}")
 
     # Apply imbalance handling strategy
-    if strategy == 'none':
+    if strategy == ImbalanceStrategy.NONE:
         X_train_final, y_train_final = X_train, y_train
         weights = None
         smote_ratio_used = None
 
-    elif strategy == 'smote_full':
+    elif strategy == ImbalanceStrategy.SMOTE_FULL:
         smote = SMOTE(sampling_strategy=1.0, random_state=random_state)
         X_train_final, y_train_final = smote.fit_resample(X_train, y_train)
         weights = None
         smote_ratio_used = 1.0
 
-    elif strategy == 'smote_partial':
+    elif strategy == ImbalanceStrategy.SMOTE_PARTIAL:
         smote = SMOTE(sampling_strategy=smote_ratio, random_state=random_state)
         X_train_final, y_train_final = smote.fit_resample(X_train, y_train)
         weights = None
         smote_ratio_used = smote_ratio
 
-    elif strategy == 'class_weights':
+    elif strategy == ImbalanceStrategy.CLASS_WEIGHTS:
         X_train_final, y_train_final = X_train, y_train
         weights = class_weight_dict
         smote_ratio_used = None
 
-    elif strategy == 'smote_partial+weights':
+    elif strategy == ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS:
         smote = SMOTE(sampling_strategy=smote_ratio, random_state=random_state)
         X_train_final, y_train_final = smote.fit_resample(X_train, y_train)
         weights = class_weight_dict
         smote_ratio_used = smote_ratio
 
     else:
+        valid_strategies = [s.value for s in ImbalanceStrategy]
         raise ValueError(
             f"Unknown strategy: {strategy}. "
-            f"Choose from: 'none', 'smote_full', 'smote_partial', "
-            f"'class_weights', 'smote_partial+weights'"
+            f"Choose from: {', '.join(valid_strategies)}"
         )
 
     # Get final class distribution
@@ -200,7 +235,8 @@ def train_with_imbalance_handling(
     class_dist_after = dict(zip(unique.astype(int), counts.astype(int)))
 
     if verbose:
-        print(f"\n📊 STRATEGY: {strategy}")
+        strategy_name = strategy.value if isinstance(strategy, ImbalanceStrategy) else strategy
+        print(f"\n📊 STRATEGY: {strategy_name}")
         print(f"   Samples: {samples_before:,} → {samples_after:,}")
         print(f"   Class dist: {class_dist_before} → {class_dist_after}")
 
@@ -257,7 +293,7 @@ def optimize_imbalance_strategy(
         y_train,
         X_val,
         y_val,
-        strategies=None,
+        strategies: Optional[List[Union[ImbalanceStrategy, str]]] = None,
         smote_ratios=None,
         optimize_for='f1',
         epochs=50,
@@ -277,8 +313,8 @@ def optimize_imbalance_strategy(
         Training data
     X_val, y_val : array-like
         Validation data
-    strategies : list, optional
-        List of strategies to try. If None, tries all.
+    strategies : list of ImbalanceStrategy or str, optional
+        List of strategies to try (enum or string values). If None, tries all strategies.
     smote_ratios : list, optional
         List of SMOTE ratios to try for partial strategies
     optimize_for : str
@@ -300,12 +336,21 @@ def optimize_imbalance_strategy(
 
     if strategies is None:
         strategies = [
-            'none',
-            'smote_full',
-            'smote_partial',
-            'class_weights',
-            'smote_partial+weights'
+            ImbalanceStrategy.NONE,
+            ImbalanceStrategy.SMOTE_FULL,
+            ImbalanceStrategy.SMOTE_PARTIAL,
+            ImbalanceStrategy.CLASS_WEIGHTS,
+            ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS
         ]
+    else:
+        # Convert strings to enums if needed
+        converted_strategies = []
+        for s in strategies:
+            if isinstance(s, str):
+                converted_strategies.append(ImbalanceStrategy(s))
+            else:
+                converted_strategies.append(s)
+        strategies = converted_strategies
 
     if smote_ratios is None:
         smote_ratios = [0.5]
@@ -320,13 +365,14 @@ def optimize_imbalance_strategy(
 
     for i, strategy in enumerate(strategies, 1):
         # Determine smote_ratio for this strategy
-        if 'smote' in strategy and strategy != 'smote_full':
+        strategy_name = strategy.value if isinstance(strategy, ImbalanceStrategy) else strategy
+        if 'smote' in strategy_name and strategy != ImbalanceStrategy.SMOTE_FULL:
             ratio = smote_ratios[0] if len(smote_ratios) == 1 else smote_ratios[i % len(smote_ratios)]
         else:
             ratio = 0.5
 
         if verbose:
-            print(f"\n[{i}/{len(strategies)}] Testing strategy: {strategy}")
+            print(f"\n[{i}/{len(strategies)}] Testing strategy: {strategy_name}")
             print("-" * 70)
 
         # Build fresh model for each strategy
@@ -347,16 +393,18 @@ def optimize_imbalance_strategy(
             verbose=verbose
         )
 
-        results[strategy] = result
+        # Store results using string key for consistent DataFrame handling
+        strategy_key = strategy.value if isinstance(strategy, ImbalanceStrategy) else strategy
+        results[strategy_key] = result
 
         if verbose:
             print(f"   ✓ {optimize_for}: {result.val_metrics[optimize_for]:.4f}")
 
     # Create comparison DataFrame
     comparison_data = []
-    for strategy, result in results.items():
+    for strategy_key, result in results.items():
         row = {
-            'strategy': strategy,
+            'strategy': strategy_key,
             'samples': result.samples_after,
             **result.val_metrics
         }
