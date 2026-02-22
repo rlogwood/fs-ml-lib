@@ -26,9 +26,9 @@ try:
     from .utility import get_predictions
     from .model_optimizer import OptimizationMetric, calculate_optimization_metric
 except ImportError:
-    import text_util as tu
-    from utility import get_predictions
-    from model_optimizer import OptimizationMetric, calculate_optimization_metric
+    from lib import text_util as tu
+    from lib.utility import get_predictions
+    from lib.model_optimizer import OptimizationMetric, calculate_optimization_metric
 
 def plot_class_distribution_analysis(df, target_col, labels=None):
     # 1. CLASS IMBALANCE ANALYSIS (CRITICAL)
