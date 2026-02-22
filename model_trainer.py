@@ -199,7 +199,7 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
 
     return model
 
-def create_early_stopping(patience=5, monitor=None, mode='max', verbose=1, restore_best_weights=True):
+def create_early_stopping(patience=5, monitor='val_f1', mode='max', verbose=1, restore_best_weights=True):
     """
     Create early stopping callback for training.
 
