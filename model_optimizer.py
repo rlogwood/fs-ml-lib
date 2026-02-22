@@ -48,12 +48,14 @@ class OptimizationMetric(Enum):
     RECALL : Recall score
     F1 : F1 score (harmonic mean of precision and recall)
     ROC_AUC : Area under the ROC curve
+    RECALL_WEIGHTED : Weighted combination (0.3*roc_auc + 0.6*recall + 0.1*f1)
     """
     ACCURACY = "accuracy"
     PRECISION = "precision"
     RECALL = "recall"
     F1 = "f1"
     ROC_AUC = "roc_auc"
+    RECALL_WEIGHTED = "recall_weighted"
 
     def __str__(self):
         return self.value
@@ -372,6 +374,8 @@ def optimize_imbalance_strategy(
         - OptimizationMetric.RECALL or 'recall': Recall score
         - OptimizationMetric.F1 or 'f1': F1 score
         - OptimizationMetric.ROC_AUC or 'roc_auc': Area under ROC curve
+        - OptimizationMetric.RECALL_WEIGHTED or 'recall_weighted':
+          Weighted score (0.3*roc_auc + 0.6*recall + 0.1*f1)
     epochs : int
         Training epochs per strategy
     callbacks : list, optional
@@ -484,6 +488,16 @@ def optimize_imbalance_strategy(
 
     comparison_df = pd.DataFrame(comparison_data)
     comparison_df = comparison_df.set_index('strategy')
+
+    # Handle recall_weighted as a special case
+    if optimize_for_str == 'recall_weighted':
+        # Calculate weighted score: 0.3*roc_auc + 0.6*recall + 0.1*f1
+        comparison_df['recall_weighted'] = (
+            0.3 * comparison_df['roc_auc'] +
+            0.6 * comparison_df['recall'] +
+            0.1 * comparison_df['f1']
+        )
+
     comparison_df = comparison_df.sort_values(by=optimize_for_str, ascending=False)
 
     # Identify best strategy
