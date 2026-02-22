@@ -49,7 +49,7 @@ def find_high_corr_pairs(df: pd.DataFrame, correlation_threshold: float = 0.7) -
 
 def drop_highly_correlated_features(df: pd.DataFrame, target_col: str, correlation_threshold: float = 0.7):
     print(tu.bold_text("\nDROPPING HIGHLY CORRELATED FEATURES"))
-
+    print(tu.bold_text(f" * Correlation Threshold: {correlation_threshold:.2f}"))
 
     # Get correlation matrix for numeric features (excluding target)
     numeric_features = df.select_dtypes(include=[np.number]).columns.drop(target_col)
