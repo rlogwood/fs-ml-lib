@@ -556,9 +556,9 @@ def optimize_imbalance_strategy(
                     result.val_metrics['recall'],
                     result.val_metrics['f1']
                 )
-                print(f"   ✓ {optimize_for_str}: {weighted_score:.4f}")
+                print(f"\n   Finished Training: ✓ {optimize_for_str}: {weighted_score:.4f}")
             else:
-                print(f"   ✓ {optimize_for_str}: {result.val_metrics[optimize_for_str]:.4f}")
+                print(f"\n   Finished Training: ✓ {optimize_for_str}: {result.val_metrics[optimize_for_str]:.4f}")
 
     # Create comparison DataFrame
     comparison_data = []
