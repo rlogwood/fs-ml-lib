@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from dataclasses import dataclass
+from typing import Optional, Any
 from sklearn.metrics import (
     confusion_matrix,
     classification_report,
@@ -26,9 +28,47 @@ try:
     from .utility import get_predictions
     from .model_optimizer import OptimizationMetric, calculate_optimization_metric
 except ImportError:
-    from lib import text_util as tu
-    from lib.utility import get_predictions
-    from lib.model_optimizer import OptimizationMetric, calculate_optimization_metric
+    import text_util as tu
+    from utility import get_predictions
+    from model_optimizer import OptimizationMetric, calculate_optimization_metric
+
+
+@dataclass
+class ModelEvaluationResult:
+    """
+    Comprehensive model evaluation results.
+
+    Attributes:
+    -----------
+    y_pred : np.ndarray
+        Binary class predictions
+    y_pred_proba : np.ndarray
+        Prediction probabilities for positive class
+    confusion_matrix : np.ndarray
+        Confusion matrix
+    cm_fig : matplotlib.figure.Figure
+        Confusion matrix figure
+    auc : float
+        Area under ROC curve
+    roc_fig : matplotlib.figure.Figure
+        ROC curve figure
+    pr_fig : matplotlib.figure.Figure
+        Precision-recall curve figure
+    best_threshold : float
+        Optimal classification threshold
+    threshold_df : pd.DataFrame
+        DataFrame with metrics at different thresholds
+    """
+    y_pred: np.ndarray
+    y_pred_proba: np.ndarray
+    confusion_matrix: np.ndarray
+    cm_fig: Any  # matplotlib.figure.Figure
+    auc: float
+    roc_fig: Any  # matplotlib.figure.Figure
+    pr_fig: Any  # matplotlib.figure.Figure
+    best_threshold: float
+    threshold_df: pd.DataFrame
+
 
 def plot_class_distribution_analysis(df, target_col, labels=None):
     # 1. CLASS IMBALANCE ANALYSIS (CRITICAL)
@@ -206,7 +246,7 @@ def plot_confusion_matrix(y_true, y_pred, labels=['Paid (0)', 'Default (1)'], fi
     print(tu.bold_and_colored_text(
         f"  True Positives (TP):  {tp:>5,} ({cm_norm[1, 1]:.1f}%) - Correctly predicted as {labels[1]}", tu.Color.GREEN))
 
-    return fig
+    return cm, fig
 
 def print_classification_metrics(y_true, y_pred, y_pred_proba=None, labels=['Paid (0)', 'Default (1)']):
     """
@@ -488,13 +528,14 @@ def evaluate_model_comprehensive(model, X_test, y_test, class_names=['Paid', 'De
 
     Returns:
     --------
-    dict
-        Dictionary containing all metrics and figures
+    ModelEvaluationResult
+        Dataclass containing all metrics and figures
 
     Examples:
     ---------
     >>> results = evaluate_model_comprehensive(model, X_test, y_test)
-    >>> print(f"AUC: {results['auc']:.4f}")
+    >>> print(f"AUC: {results.auc:.4f}")
+    >>> print(f"Best threshold: {results.best_threshold:.3f}")
 
     >>> # Using recall_weighted optimization
     >>> results = evaluate_model_comprehensive(model, X_test, y_test,
@@ -502,34 +543,40 @@ def evaluate_model_comprehensive(model, X_test, y_test, class_names=['Paid', 'De
     """
     if not isinstance(optimize_for, OptimizationMetric):
         raise TypeError(f"optimize_for must be OptimizationMetric enum, got {type(optimize_for).__name__}")
+
     # Get predictions using shared utility
     y_pred, y_pred_proba = get_predictions(model, X_test, threshold=0.5, verbose=0)
 
-    # Generate all evaluations
-    results = {}
-
-    results['y_pred'] = y_pred
-    results['y_pred_proba'] = y_pred_proba
-
     # 1. Confusion Matrix
-    results['cm_fig'] = plot_confusion_matrix(y_test, y_pred, labels=class_names)
+    conf_matrix, cm_fig = plot_confusion_matrix(y_test, y_pred, labels=class_names)
 
     # 2. Classification Metrics
     print_classification_metrics(y_test, y_pred, y_pred_proba,
                                  labels=[f'{class_names[0]} (0)', f'{class_names[1]} (1)'])
 
     # 3. ROC Curve
-    results['roc_fig'], results['auc'] = plot_roc_curve(y_test, y_pred_proba)
+    roc_fig, auc_score = plot_roc_curve(y_test, y_pred_proba)
 
     # 4. Precision-Recall Curve
-    results['pr_fig'] = plot_precision_recall_curve(y_test, y_pred_proba, usr_title=usr_title)
+    pr_fig = plot_precision_recall_curve(y_test, y_pred_proba, usr_title=usr_title)
 
     # 5. Threshold Optimization
-    results['best_threshold'], results['threshold_df'] = optimize_threshold(
-        y_test, y_pred_proba, metric=optimize_for, roc_auc=results['auc']
+    best_threshold_dict, threshold_df = optimize_threshold(
+        y_test, y_pred_proba, metric=optimize_for, roc_auc=auc_score
     )
 
-    return results
+    # Create and return dataclass instance
+    return ModelEvaluationResult(
+        y_pred=y_pred,
+        y_pred_proba=y_pred_proba,
+        confusion_matrix=conf_matrix,
+        cm_fig=cm_fig,
+        auc=auc_score,
+        roc_fig=roc_fig,
+        pr_fig=pr_fig,
+        best_threshold=best_threshold_dict['threshold'],
+        threshold_df=threshold_df
+    )
 
 if __name__ == "__main__":
     # Example usage

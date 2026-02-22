@@ -63,8 +63,9 @@ class TestConfusionMatrix:
     def test_plot_confusion_matrix(self, sample_predictions):
         """Test confusion matrix plotting"""
         y_true, y_pred, _ = sample_predictions
-        fig = me.plot_confusion_matrix(y_true, y_pred)
+        cm, fig = me.plot_confusion_matrix(y_true, y_pred)
 
+        assert cm is not None
         assert fig is not None
         assert isinstance(fig, plt.Figure)
         assert len(fig.axes) == 4  # 2 subplots + 2 colorbars
@@ -74,12 +75,13 @@ class TestConfusionMatrix:
     def test_plot_confusion_matrix_custom_labels(self, sample_predictions):
         """Test confusion matrix with custom labels"""
         y_true, y_pred, _ = sample_predictions
-        fig = me.plot_confusion_matrix(
+        cm, fig = me.plot_confusion_matrix(
             y_true,
             y_pred,
             labels=['Good', 'Bad']
         )
 
+        assert cm is not None
         assert fig is not None
         plt.close(fig)
 
@@ -282,25 +284,26 @@ class TestComprehensiveEvaluation:
             y_true
         )
 
-        # Check that all expected results are present
-        assert 'cm_fig' in results
-        assert 'roc_fig' in results
-        assert 'pr_fig' in results
-        assert 'auc' in results
-        assert 'best_threshold' in results
-        assert 'threshold_df' in results
+        # Check that result is a dataclass
+        assert hasattr(results, 'cm_fig')
+        assert hasattr(results, 'roc_fig')
+        assert hasattr(results, 'pr_fig')
+        assert hasattr(results, 'auc')
+        assert hasattr(results, 'best_threshold')
+        assert hasattr(results, 'threshold_df')
 
         # Check types
-        assert isinstance(results['cm_fig'], plt.Figure)
-        assert isinstance(results['roc_fig'], plt.Figure)
-        assert isinstance(results['pr_fig'], plt.Figure)
-        assert isinstance(results['auc'], float)
-        assert isinstance(results['best_threshold'], dict)
-        assert isinstance(results['threshold_df'], pd.DataFrame)
+        assert isinstance(results.cm_fig, plt.Figure)
+        assert isinstance(results.roc_fig, plt.Figure)
+        assert isinstance(results.pr_fig, plt.Figure)
+        assert isinstance(results.auc, float)
+        assert isinstance(results.best_threshold, float)
+        assert isinstance(results.threshold_df, pd.DataFrame)
 
         # Clean up
-        for key in ['cm_fig', 'roc_fig', 'pr_fig']:
-            plt.close(results[key])
+        plt.close(results.cm_fig)
+        plt.close(results.roc_fig)
+        plt.close(results.pr_fig)
 
 
 class TestClassDistributionAnalysis:
@@ -348,7 +351,8 @@ class TestIntegration:
 
         # Test all evaluation functions
         # Confusion matrix
-        cm_fig = me.plot_confusion_matrix(y_true, y_pred)
+        cm, cm_fig = me.plot_confusion_matrix(y_true, y_pred)
+        assert cm is not None
         assert cm_fig is not None
         plt.close(cm_fig)
 
