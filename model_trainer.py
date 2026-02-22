@@ -7,6 +7,8 @@ neural network models for loan default prediction.
 
 import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
+import tensorflow as tf
+from tensorflow.keras.metrics import Precision, Recall
 
 try:
     from . import text_util as tu
@@ -197,7 +199,7 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
 
     return model
 
-def create_early_stopping(patience=5, monitor='val_auc', mode='max', verbose=1, restore_best_weights=True):
+def create_early_stopping(patience=5, monitor='val_f1', mode='max', verbose=1, restore_best_weights=True):
     """
     Create early stopping callback for training.
 
@@ -219,10 +221,28 @@ def create_early_stopping(patience=5, monitor='val_auc', mode='max', verbose=1, 
 
     Examples:
     ---------
-    >>> early_stop = create_early_stopping(patience=5, monitor='val_auc')
+    >>> early_stop = create_early_stopping(patience=5, monitor='val_f1')
     >>> history = model.fit(X, y, callbacks=[early_stop])
     """
     from tensorflow.keras.callbacks import EarlyStopping
+
+    # Validate monitor parameter against known metrics
+    valid_monitors = [
+        'loss', 'val_loss',
+        'accuracy', 'val_accuracy',
+        'auc', 'val_auc',
+        'precision', 'val_precision',
+        'recall', 'val_recall',
+        'f1', 'val_f1'
+    ]
+
+    if monitor not in valid_monitors:
+        raise ValueError(
+            f"Invalid monitor: '{monitor}'. "
+            f"Must be one of: {', '.join(valid_monitors)}"
+        )
+
+    print(tu.bold_and_colored_text(f"\n** CREATING EARLY STOPPING CALLBACK (patience={patience}, monitor='{monitor}', mode='{mode}', verbose={verbose}, mode='{mode}', restore_best_weights={restore_best_weights})\n", tu.Color.GREEN))
 
     return EarlyStopping(
         monitor=monitor,

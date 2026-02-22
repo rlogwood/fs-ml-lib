@@ -182,7 +182,7 @@ class TestEarlyStopping:
             callback = mt.create_early_stopping()
 
             assert callback.patience == 5
-            assert callback.monitor == 'val_auc'
+            assert callback.monitor == 'val_f1'
             assert callback.restore_best_weights
         except ImportError:
             pytest.skip("TensorFlow not installed")
@@ -215,7 +215,7 @@ class TestModelTraining:
                 class_weights,
                 epochs=2,
                 batch_size=32,
-                verbose=0
+                model_verbosity=0
             )
 
             assert history is not None
@@ -243,7 +243,7 @@ class TestModelTraining:
                 class_weights,
                 epochs=10,
                 callbacks=[early_stop],
-                verbose=0
+                model_verbosity=0
             )
 
             # With early stopping, should stop before 10 epochs
@@ -344,7 +344,7 @@ class TestIntegration:
                 epochs=5,
                 batch_size=32,
                 callbacks=[early_stop],
-                verbose=0
+                model_verbosity=0
             )
 
             # Validate results
