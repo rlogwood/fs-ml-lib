@@ -199,7 +199,7 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
 
     return model
 
-def create_early_stopping(patience=5, monitor='val_f1', mode='max', verbose=1, restore_best_weights=True):
+def create_early_stopping(patience=5, monitor=None, mode='max', verbose=1, restore_best_weights=True):
     """
     Create early stopping callback for training.
 
@@ -242,7 +242,7 @@ def create_early_stopping(patience=5, monitor='val_f1', mode='max', verbose=1, r
             f"Must be one of: {', '.join(valid_monitors)}"
         )
 
-    print(tu.bold_and_colored_text(f"\n** CREATING EARLY STOPPING CALLBACK (patience={patience}, monitor='{monitor}', mode='{mode}', verbose={verbose}, mode='{mode}', restore_best_weights={restore_best_weights})\n", tu.Color.GREEN))
+    print(tu.bold_and_colored_text(f"\n** CREATING EARLY STOPPING CALLBACK (patience={patience}, monitor='{monitor}', mode='{mode}', verbose={verbose}, restore_best_weights={restore_best_weights})\n", tu.Color.GREEN))
 
     return EarlyStopping(
         monitor=monitor,
