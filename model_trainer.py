@@ -192,10 +192,10 @@ def build_neural_network(input_dim, layers=[32, 16], dropout_rate=0.3, learning_
         ]
     )
 
-    print("\nModel Architecture:\n")
+    print("Model Architecture:")
     model.summary()
 
-    print(tu.bold_and_colored_text("\nMODEL READY FOR TRAINING", tu.Color.GREEN))
+    print(tu.bold_and_colored_text("MODEL READY FOR TRAINING", tu.Color.GREEN))
 
     return model
 
