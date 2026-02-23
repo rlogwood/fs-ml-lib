@@ -144,10 +144,11 @@ def get_predictions(model, X, threshold=0.5, verbose=0):
 @dataclass
 class ModelArchitectureInfo:
     """
-    Generic model architecture information.
+    Generic model architecture and training information.
 
     This dataclass provides a structured way to describe any model type
-    (Keras, sklearn, XGBoost, etc.) with consistent attributes.
+    (Keras, sklearn, XGBoost, etc.) with consistent attributes, including
+    both architecture details and optional training configuration.
 
     Attributes:
     -----------
@@ -166,6 +167,12 @@ class ModelArchitectureInfo:
         Key hyperparameters and configuration settings
     layers : list, optional
         List of layer descriptions for neural networks
+    batch_size : int, optional
+        Training batch size (if available)
+    epochs : int, optional
+        Number of training epochs (if available)
+    learning_rate : float, optional
+        Learning rate used during training (if available)
 
     Examples:
     ---------
@@ -173,10 +180,12 @@ class ModelArchitectureInfo:
     ...     model_type="Sequential",
     ...     model_family="neural_network",
     ...     n_parameters=1234,
-    ...     n_layers=5
+    ...     n_layers=5,
+    ...     batch_size=32,
+    ...     epochs=100
     ... )
     >>> print(info)
-    Sequential (neural_network), 5 layers, 1,234 parameters
+    Sequential (neural_network), 5 layers, 1,234 parameters, trained: 100 epochs, batch_size=32
     """
     model_type: str
     model_family: str
@@ -185,25 +194,27 @@ class ModelArchitectureInfo:
     input_shape: Optional[tuple] = None
     config: Optional[Dict[str, Any]] = None
     layers: Optional[list] = None
+    batch_size: Optional[int] = None
+    epochs: Optional[int] = None
+    learning_rate: Optional[float] = None
 
     def layer_summary(self):
         summary = ""
         for layer in self.layers:
-            if hasattr(layer, 'units'):
-                units = f":{layer_info['units']}"
-            else:
-                units = ""
+            name = layer.get('name','')
+            type = layer.get('type','')
+            units = layer.get('units','')
+            output_shape = layer.get('output_shape','')
+            activation = layer.get('activation','')
+            rate = layer.get('rate','')
 
-            if hasattr(layer, 'output_shape') and layer['output_shape'] is not None:
-                output_shape = f"({layer['output_shape']})"
-            else:
-                output_shape = ""
-            summary += f"  - {layer['name']} ({layer['type']}{units}) {output_shape}\n"
+            summary += f"  - {name} ({type}:{units}:{output_shape}) {activation} {rate}\n"
         return summary
+
 
     def __str__(self) -> str:
         """
-        Human-readable description of the model architecture.
+        Human-readable description of the model architecture and training config.
 
         Returns:
         --------
@@ -225,12 +236,100 @@ class ModelArchitectureInfo:
                 config_str = ', '.join(f"{k}={v}" for k, v in config_items)
                 parts.append(config_str)
 
+        # Add training configuration if available
+        training_parts = []
+        if self.epochs is not None:
+            training_parts.append(f"{self.epochs} epochs")
+        if self.batch_size is not None:
+            training_parts.append(f"batch_size={self.batch_size}")
+        if self.learning_rate is not None:
+            training_parts.append(f"lr={self.learning_rate}")
+
+        if training_parts:
+            parts.append(f"trained: {', '.join(training_parts)}")
+
         return ', '.join(parts)
 
 
-def get_model_architecture_info(model) -> ModelArchitectureInfo:
+def add_batch_size_to_history(history, batch_size):
     """
-    Extract architecture information from any model type.
+    Add batch_size to history.params for later extraction.
+
+    Keras doesn't store batch_size in history.params by default, so this
+    helper function adds it manually for use with get_model_architecture_info().
+
+    Parameters:
+    -----------
+    history : keras.callbacks.History
+        Training history object returned by model.fit()
+    batch_size : int
+        The batch size used during training
+
+    Returns:
+    --------
+    keras.callbacks.History
+        The same history object with batch_size added to params
+
+    Usage:
+    ------
+    >>> history = model.fit(X, y, batch_size=32, epochs=100)
+    >>> history = add_batch_size_to_history(history, 32)
+    >>> info = get_model_architecture_info(model, history=history)
+    """
+    if history is not None:
+        params_dict = getattr(history, 'params', None)
+        if params_dict and isinstance(params_dict, dict):
+            params_dict['batch_size'] = batch_size
+    return history
+
+
+def debug_history_params(history):
+    """
+    Debug helper to see what's in the history object.
+
+    Parameters:
+    -----------
+    history : keras.callbacks.History
+        Training history object
+
+    Usage:
+    ------
+    >>> history = model.fit(X, y, batch_size=32, epochs=100)
+    >>> debug_history_params(history)
+    """
+    print("\n" + "=" * 70)
+    print("DEBUG: History object contents")
+    print("=" * 70)
+
+    if history is None:
+        print("History is None")
+        return
+
+    print(f"\nType: {type(history)}")
+
+    if hasattr(history, 'params'):
+        print(f"\nhistory.params keys: {list(history.params.keys())}")
+        print("\nhistory.params contents:")
+        for key, value in history.params.items():
+            print(f"  {key}: {value}")
+    else:
+        print("\nNo 'params' attribute found")
+
+    if hasattr(history, 'epoch'):
+        print(f"\nhistory.epoch: {history.epoch}")
+        print(f"Number of epochs trained: {len(history.epoch)}")
+    else:
+        print("\nNo 'epoch' attribute found")
+
+    if hasattr(history, 'history'):
+        print(f"\nhistory.history keys: {list(history.history.keys())}")
+
+    print("=" * 70)
+
+
+def get_model_architecture_info(model, history=None, batch_size=None, epochs=None, learning_rate=None) -> ModelArchitectureInfo:
+    """
+    Extract architecture and training information from any model type.
 
     This function works with Keras/TensorFlow models, sklearn models,
     XGBoost models, and provides generic fallback for other types.
@@ -239,11 +338,19 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
     -----------
     model : object
         Trained model (Keras, sklearn, XGBoost, etc.)
+    history : keras.callbacks.History, optional
+        Training history object (Keras models). If provided, extracts batch_size and epochs automatically.
+    batch_size : int, optional
+        Training batch size (overrides history if provided)
+    epochs : int, optional
+        Number of training epochs (overrides history if provided)
+    learning_rate : float, optional
+        Learning rate (if not provided, auto-extracted from Keras optimizer)
 
     Returns:
     --------
     ModelArchitectureInfo
-        Structured model information with type, family, and configuration
+        Structured model information with type, family, configuration, and training params
 
     Examples:
     ---------
@@ -255,10 +362,50 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
 
     >>> from tensorflow import keras
     >>> model = keras.Sequential([...])
-    >>> info = get_model_architecture_info(model)
+    >>> history = model.fit(X, y, batch_size=32, epochs=100)
+    >>> info = get_model_architecture_info(model, history=history)
     >>> print(info)
-    Sequential (neural_network), 5 layers, 1,234 parameters
+    Sequential (neural_network), 5 layers, 1,234 parameters, trained: 100 epochs, batch_size=32, lr=0.001
     """
+    # Extract training params from history if available and not explicitly provided
+    if history is not None:
+        # Check if history has params attribute (it should be a dict)
+        params_dict = getattr(history, 'params', None)
+
+        if params_dict and isinstance(params_dict, dict):
+            # Try to extract batch_size from history.params
+            if batch_size is None:
+                # First try direct batch_size key (added by train_model_with_class_weights)
+                if 'batch_size' in params_dict:
+                    batch_size = params_dict['batch_size']
+                # Otherwise calculate from 'steps' and 'samples' if available
+                elif 'samples' in params_dict and 'steps' in params_dict:
+                    samples = params_dict['samples']
+                    steps = params_dict['steps']
+                    if steps > 0:
+                        batch_size = int(samples / steps)
+
+        # Try to extract epochs from history.epoch (actual epochs trained - respects early stopping)
+        if epochs is None:
+            if hasattr(history, 'epoch') and history.epoch:
+                epochs = len(history.epoch)
+            # Fallback to params if epoch list not available
+            elif params_dict and 'epochs' in params_dict:
+                epochs = params_dict['epochs']
+
+    # Auto-extract learning rate from Keras optimizer if not provided
+    if learning_rate is None and hasattr(model, 'optimizer'):
+        try:
+            if hasattr(model.optimizer, 'learning_rate'):
+                lr_value = model.optimizer.learning_rate
+                # Handle TensorFlow Variable
+                if hasattr(lr_value, 'numpy'):
+                    learning_rate = float(lr_value.numpy())
+                else:
+                    learning_rate = float(lr_value)
+        except (AttributeError, TypeError):
+            pass  # Couldn't extract learning rate, leave as None
+
     model_type = type(model).__name__
 
     # Keras/TensorFlow models
@@ -273,10 +420,19 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
         # Extract layer information
         layer_descriptions = []
         for layer in model.layers:
+            # Extract meaningful output dimension (last element of shape tuple, excluding batch dimension)
+            output_dim = None
+            if hasattr(layer, 'output_shape') and layer.output_shape:
+                # output_shape is typically (None, dim) or (None, dim1, dim2, ...)
+                # We want the last non-None dimension
+                shape_tuple = layer.output_shape
+                if isinstance(shape_tuple, tuple) and len(shape_tuple) > 1:
+                    output_dim = shape_tuple[-1]  # Last dimension (e.g., 32 from (None, 32))
+
             layer_info = {
                 'name': layer.name,
                 'type': layer.__class__.__name__,
-                'output_shape': layer.output_shape if hasattr(layer, 'output_shape') else None,
+                'output_shape': output_dim,
             }
 
             # Add units for Dense layers
@@ -301,7 +457,10 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
             n_layers=len(model.layers),
             input_shape=model.input_shape if hasattr(model, 'input_shape') else None,
             config=config if config else None,
-            layers=layer_descriptions
+            layers=layer_descriptions,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate
         )
 
     # sklearn tree-based models
@@ -317,7 +476,10 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
         return ModelArchitectureInfo(
             model_type=model_type,
             model_family='tree_ensemble',
-            config=config if config else None
+            config=config if config else None,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate
         )
 
     # sklearn linear models
@@ -333,7 +495,10 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
         return ModelArchitectureInfo(
             model_type=model_type,
             model_family='linear',
-            config=config if config else None
+            config=config if config else None,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate
         )
 
     # XGBoost models
@@ -349,7 +514,10 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
         return ModelArchitectureInfo(
             model_type=model_type,
             model_family='gradient_boosting',
-            config=config if config else None
+            config=config if config else None,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate
         )
 
     # Generic fallback for unknown model types
@@ -364,5 +532,8 @@ def get_model_architecture_info(model) -> ModelArchitectureInfo:
         return ModelArchitectureInfo(
             model_type=model_type,
             model_family='unknown',
-            config=config if config else None
+            config=config if config else None,
+            batch_size=batch_size,
+            epochs=epochs,
+            learning_rate=learning_rate
         )
