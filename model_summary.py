@@ -12,7 +12,8 @@ except ImportError:
     from utility import get_model_architecture_info, ModelArchitectureInfo
 
 def generate_model_selection_summary(comparison: OptimizationComparison, best_result: ImbalanceTrainingResult,
-    results: ModelEvaluationResult, data: PreparedData, imbalance_analysis: ImbalanceAnalysisResult):
+                                     model_eval_results: ModelEvaluationResult, data: PreparedData,
+                                     imbalance_analysis: ImbalanceAnalysisResult):
     """
     Generate a comprehensive model selection summary with actual calculated values.
 
@@ -37,11 +38,10 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
     #best_threshold_info = results['best_threshold']
     #best_threshold_info = results.best_threshold
     #best_threshold = best_threshold_info['threshold']
-    best_threshold = results.best_threshold
+    #best_threshold =
 
-    test_auc = results['auc']
-    #cm = results['confusion_matrix']
-    cm = results.confusion_matrix
+    test_auc = model_eval_results.auc
+    cm = model_eval_results.confusion_matrix
     tn, fp, fn, tp = cm.ravel()
 
     # Convert numpy types to Python native types for formatting
@@ -83,16 +83,24 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
 
     #imbalance_ratio = result_obj.imbalance_ratio
     imbalance_ratio = imbalance_analysis.imbalance_ratio
+    best_threshold = model_eval_results.best_threshold
 
     # Best result training info
-    best_val_auc = best_result.val_auc
-    best_epoch = best_result.best_epoch
+    # Get validation AUC from history (Keras History object has .history dict)
+    if hasattr(best_result.history, 'history') and 'val_auc' in best_result.history.history:
+        val_auc_list = best_result.history.history['val_auc']
+        best_val_auc = max(val_auc_list)
+        best_epoch = val_auc_list.index(best_val_auc) + 1  # +1 because epochs are 1-indexed
+    else:
+        # Fallback to val_metrics if history not available
+        best_val_auc = best_result.val_metrics.roc_auc
+        best_epoch = len(best_result.history.epoch) if hasattr(best_result.history, 'epoch') else 'N/A'
 
     # Class weights
-    class_weights = best_result.class_weights if hasattr(best_result, 'class_weights') else None
+    class_weights = best_result.class_weight_dict
 
-    # Training sample counts
-    train_counts = best_result.train_class_counts
+    # Training sample counts (use class distribution after processing)
+    train_counts = best_result.class_dist_after
 
     # Calculate metrics
     total_defaults = fn + tp
@@ -114,10 +122,17 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
     # Build comparison table
     comparison_rows = []
     for strategy_name, strategy_result in comparison.results.items():
-        train_samples = sum(strategy_result.train_class_counts.values())
-        class_dist = str(strategy_result.train_class_counts)
-        val_auc = strategy_result.val_auc
-        epoch = strategy_result.best_epoch
+        train_samples = sum(strategy_result.class_dist_after.values())
+        class_dist = str(strategy_result.class_dist_after)
+        val_auc = strategy_result.val_metrics.roc_auc
+
+        # Get best epoch from history if available
+        if hasattr(strategy_result.history, 'history') and 'val_auc' in strategy_result.history.history:
+            val_auc_list = strategy_result.history.history['val_auc']
+            epoch = val_auc_list.index(max(val_auc_list)) + 1
+        else:
+            epoch = len(strategy_result.history.epoch) if hasattr(strategy_result.history, 'epoch') else 'N/A'
+
         comparison_rows.append(f"| **{strategy_name}** | {train_samples:,} | {class_dist} | {val_auc:.4f} | {epoch} |")
 
     comparison_table = "\n".join(comparison_rows)
@@ -136,7 +151,7 @@ After comprehensive experimentation with imbalance handling strategies and thres
 Our dataset exhibits **{imbalance_analysis.severity}**:
 - **Class 0 (Paid)**: {class_0_count:,} samples ({class_0_pct:.2f}%)
 - **Class 1 (Default)**: {class_1_count:,} samples ({class_1_pct:.2f}%)
-- **Imbalance Ratio**: {imbalance_ratio:.2f}:1
+- **Imbalance Ratio**: {imbalance_ratio}
 
 ### Strategies Tested
 We compared {len(comparison.results)} imbalance handling strategies:
@@ -157,7 +172,7 @@ We compared {len(comparison.results)} imbalance handling strategies:
 - Class 1 (Default): {weight_1:.3f}
 
 """
-
+    #best_strategy_safe = best_strategy.replace('%', '%%') if best_strategy else ''
     md += f"""### Why {best_strategy}?
 
 1. **Best Validation Performance**: Achieved highest validation AUC of **{best_val_auc:.4f}**, outperforming all other strategies
