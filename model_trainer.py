@@ -322,6 +322,12 @@ def train_model_with_class_weights(
         verbose=model_verbosity
     )
 
+    # Add batch_size to history.params for later extraction by get_model_architecture_info()
+    # Keras doesn't store this by default
+    params_dict = getattr(history, 'params', None)
+    if params_dict and isinstance(params_dict, dict):
+        params_dict['batch_size'] = batch_size
+
     return history
 
 
