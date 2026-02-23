@@ -65,12 +65,12 @@ class TestImbalanceTrainingResult:
             samples_after=2,
             class_dist_before={0: 1, 1: 0},
             class_dist_after={0: 1, 1: 1},
-            val_metrics={'accuracy': 0.75, 'recall': 0.8}
+            val_metrics=mo.ValidationMetrics(accuracy=0.75, precision=0.7, recall=0.8, f1=0.74, roc_auc=0.85)
         )
 
         assert result.strategy == mo.ImbalanceStrategy.SMOTE_FULL
         assert result.samples_after == 2
-        assert result.val_metrics['accuracy'] == 0.75
+        assert result.val_metrics.accuracy == 0.75
 
     def test_result_summary(self):
         """Test result summary generation"""
@@ -287,10 +287,10 @@ class TestOptimizationComparison:
     def test_comparison_creation(self):
         """Test creating optimization comparison"""
         mock_result1 = Mock()
-        mock_result1.val_metrics = {'f1': 0.75}
+        mock_result1.val_metrics = mo.ValidationMetrics(accuracy=0.7, precision=0.72, recall=0.73, f1=0.75, roc_auc=0.78)
 
         mock_result2 = Mock()
-        mock_result2.val_metrics = {'f1': 0.80}
+        mock_result2.val_metrics = mo.ValidationMetrics(accuracy=0.78, precision=0.79, recall=0.81, f1=0.80, roc_auc=0.82)
 
         results = {
             'strategy1': mock_result1,
@@ -316,7 +316,7 @@ class TestOptimizationComparison:
     def test_comparison_print(self):
         """Test comparison printing"""
         mock_result = Mock()
-        mock_result.val_metrics = {'f1': 0.75}
+        mock_result.val_metrics = mo.ValidationMetrics(accuracy=0.7, precision=0.72, recall=0.73, f1=0.75, roc_auc=0.78)
         mock_result.model = Mock()
 
         results = {'strategy1': mock_result}
