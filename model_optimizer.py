@@ -15,9 +15,11 @@ from sklearn.utils.class_weight import compute_class_weight
 from imblearn.over_sampling import SMOTE
 
 try:
+    import lib.text_util as tu
     from lib.utility import get_predictions
 except ImportError:
     from utility import get_predictions
+    import text_util as tu
 
 
 class ImbalanceStrategy(Enum):
@@ -526,7 +528,8 @@ def optimize_imbalance_strategy(
             ratio = 0.5
 
         if verbose:
-            print(f"\n[{i}/{len(strategies)}] Testing strategy: {strategy_name}")
+            print("=" * 70)
+            print(tu.bold_and_colored_text(f"[{i}/{len(strategies)}] Testing strategy: {strategy_name}",tu.Color.BLUE))
             print("-" * 70)
 
         # Build fresh model for each strategy
