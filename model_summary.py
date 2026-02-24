@@ -20,7 +20,8 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
                                      cost_benefit_fn: Callable[[float, float, float, float, float], str],
                                      monitoring_explanation: Callable[[EarlyStopping, int], str],
                                      trade_off_discussion: Callable[[int, float], str],
-                                     business_impact: Callable[[int, int, float, int, float], str]):
+                                     business_impact: Callable[[int, int, float, int, float], str],
+                                     class_labels: dict = None):
     #= lambda x: f"**{x.monitor}** is used to monitor training performance"):
     """
     Generate a comprehensive model selection summary with actual calculated values.
@@ -31,15 +32,27 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
         Results from optimize_imbalance_strategy
     best_result : ImbalanceTrainingResult
         The best performing strategy result
-    results : dict
-        Dictionary containing evaluation results (from evaluate_model_comprehensive)
+    model_eval_results : ModelEvaluationResult
+        Model evaluation results from evaluate_model_comprehensive
     data : PreparedData
         The prepared data object with train/val/test splits
-    result_obj : ImbalanceAnalysisResult
+    imbalance_analysis : ImbalanceAnalysisResult
         Class imbalance analysis result
-    cost_benefit_fn : callable, optional
+    early_stop : EarlyStopping
+        Early stopping callback used during training
+    cost_benefit_fn : callable
         Function that takes (threshold, fn, fp, tp, tn) and returns a formatted string
-        for cost-benefit analysis. If None, uses default loan default cost analysis.
+        for cost-benefit analysis
+    monitoring_explanation : callable
+        Function that takes (early_stop, best_epoch) and returns explanation text
+    trade_off_discussion : callable
+        Function that takes (baseline_catch_rate, recall_pct) and returns discussion text
+    business_impact : callable
+        Function that takes (defaults_caught, total_defaults, recall_pct, baseline_catch_rate, best_threshold)
+        and returns business impact text
+    class_labels : dict, optional
+        Mapping of class values to human-readable labels {class_value: "Display Name"}
+        Example: {0: "Paid", 1: "Default"}
     """
     from IPython.display import display, Markdown
     import numpy as np
@@ -89,20 +102,6 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
     # )
 
 
-    total_samples = imbalance_analysis.total_samples
-    # counts = list(result_obj.class_dist_after.values())
-    # class_0_count = counts[0]
-    # class_1_count = counts[1]
-    # class_0_pct = (class_0_count / total_samples) * 100
-    # class_1_pct = (class_1_count / total_samples) * 100
-
-    class_0_count = imbalance_analysis.majority_count
-    class_1_count = imbalance_analysis.minority_count
-    class_0_pct = (class_0_count / total_samples) * 100
-    class_1_pct = (class_1_count / total_samples) * 100
-
-    #imbalance_ratio = result_obj.imbalance_ratio
-    imbalance_ratio = imbalance_analysis.imbalance_ratio
     best_threshold = model_eval_results.best_threshold
 
     # Best result training info
@@ -116,9 +115,6 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
         best_val_auc = best_result.val_metrics.roc_auc
         best_epoch = len(best_result.history.epoch) if hasattr(best_result.history, 'epoch') else 'N/A'
 
-    # Class weights
-    class_weights = best_result.class_weight_dict
-
     # Training sample counts (use class distribution after processing)
     train_counts = best_result.class_dist_after
 
@@ -127,7 +123,7 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
     defaults_caught = tp
     recall_pct = (defaults_caught / total_defaults) * 100 if total_defaults > 0 else 0
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    baseline_catch_rate = class_1_pct
+    baseline_catch_rate = (imbalance_analysis.minority_count / imbalance_analysis.total_samples) * 100
 
     best_model = comparison.get_best_model()
     # Get architecture info
@@ -172,7 +168,6 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
 
     print(f"Model summary:\n{model_summary_str}")
 
-    #TODO: FIX ME! hard coded class names, capped at 2 classes (see below)
     # Generate markdown
     md = f"""# Model Selection Summary: Findings and Motivations
 
@@ -184,11 +179,7 @@ After comprehensive experimentation with imbalance handling strategies and thres
 ## 1. Imbalance Handling Strategy Selection
 
 ### The Challenge
-Our dataset exhibits **{imbalance_analysis.severity}**:
-#### TODO: FIX ME! hard coded class names, capped at 2 classes
-- **Class 0 (Paid)**: {class_0_count:,} samples ({class_0_pct:.2f}%)
-- **Class 1 (Default)**: {class_1_count:,} samples ({class_1_pct:.2f}%)
-- **Imbalance Ratio**: {imbalance_ratio}
+{imbalance_analysis.display_markdown()}
 
 ### Strategies Tested
 We compared {len(comparison.results)} imbalance handling strategies:
@@ -198,17 +189,8 @@ We compared {len(comparison.results)} imbalance handling strategies:
 {comparison_table}
 
 """
-
     # Add class weights section if available
-    if class_weights:
-        weight_0 = class_weights.get(0, 'N/A')
-        weight_1 = class_weights.get(1, 'N/A')
-        if isinstance(weight_0, (int, float)) and isinstance(weight_1, (int, float)):
-            md += f"""**Calculated Class Weights**: 
-- Class 0 (Paid): {weight_0:.3f}
-- Class 1 (Default): {weight_1:.3f}
-
-"""
+    md += best_result.display_markdown(class_labels=class_labels)
     #best_strategy_safe = best_strategy.replace('%', '%%') if best_strategy else ''
     md += f"""### Why {best_strategy}?
 
