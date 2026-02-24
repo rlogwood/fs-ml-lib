@@ -18,7 +18,9 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
                                      imbalance_analysis: ImbalanceAnalysisResult,
                                      early_stop: EarlyStopping,
                                      cost_benefit_fn: Callable[[float, float, float, float, float], str],
-                                     monitoring_explanation: Callable[[EarlyStopping, int], str]):
+                                     monitoring_explanation: Callable[[EarlyStopping, int], str],
+                                     trade_off_discussion: Callable[[int, float], str],
+                                     business_impact: Callable[[int, int, float, int, float], str]):
     #= lambda x: f"**{x.monitor}** is used to monitor training performance"):
     """
     Generate a comprehensive model selection summary with actual calculated values.
@@ -164,6 +166,12 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
 
     comparison_table = "\n".join(comparison_rows)
 
+    summary_lines = []
+    best_model.summary(print_fn=lambda x: summary_lines.append(x))
+    model_summary_str = '\n'.join(summary_lines)
+
+    print(f"Model summary:\n{model_summary_str}")
+
     #TODO: FIX ME! hard coded class names, capped at 2 classes (see below)
     # Generate markdown
     md = f"""# Model Selection Summary: Findings and Motivations
@@ -263,38 +271,23 @@ Actual  Paid     {tn:,}      {fp:,}
 - **Precision (Default Class)**: {precision * 100:.2f}%
 
 ### Why This Trade-off Makes Sense
-
-1. **Asymmetric Costs**: Missing a $15,000 default is **21x more expensive** than a manual review
-2. **Risk Management**: In lending, conservative predictions protect against catastrophic losses
-3. **Baseline Comparison**: Random chance would catch only **{baseline_catch_rate:.0f}% of defaults**; our model catches **{recall_pct:.0f}%**
+{trade_off_discussion(baseline_catch_rate, recall_pct)}
 
 ---
 
 ## 5. Model Architecture
 
+
+
 **Neural Network Configuration**:
-```python
-Input Layer: {data.X_train.shape[1]} features (after one-hot encoding)
-Hidden Layer 1: 32 neurons, ReLU activation
-Dropout 1: 30% dropout rate
-Hidden Layer 2: 16 neurons, ReLU activation
-Dropout 2: 30% dropout rate
-Output Layer: 1 neuron, Sigmoid activation
-
-Optimizer: Adam (lr=0.001)
-Loss: Binary Crossentropy (with class weights)
 ```
-
+{model_summary_str}
+```
 ---
 
 ## 6. Key Takeaways
 
-### Business Impact
-- **Current Model**: Catches {defaults_caught}/{total_defaults} defaults ({recall_pct:.0f}% recall at threshold {best_threshold})
-- **Baseline (Random)**: Would catch ~{int(total_defaults * baseline_catch_rate / 100)}/{total_defaults} defaults ({baseline_catch_rate:.0f}% by chance)
-- **Improvement**: **+{defaults_caught - int(total_defaults * baseline_catch_rate / 100)} additional defaults caught**
-- **Financial Impact**: ${(defaults_caught - int(total_defaults * baseline_catch_rate / 100)) * 15000:,} in prevented losses per test batch
-
+{business_impact(defaults_caught, total_defaults, recall_pct, baseline_catch_rate, best_threshold)}
 ---
 
 ## Next Steps
