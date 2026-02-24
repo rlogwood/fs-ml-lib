@@ -155,6 +155,31 @@ class ImbalanceTrainingResult:
                 print(f"  {metric}: {value:.4f}")
         print(f"{'=' * 70}\n")
 
+    def display_markdown(self, class_labels: dict = None) -> str:
+        """Generate markdown formatted summary of class weights.
+
+        Parameters:
+        -----------
+        class_labels : dict, optional
+            Mapping of class values to human-readable labels {class_value: "Display Name"}
+            Example: {0: "Paid", 1: "Default"}
+
+        Returns:
+        --------
+        str: Markdown formatted string with class weights information
+        """
+        md = ""
+        if self.class_weight_dict:
+            md += "**Calculated Class Weights**:\n"
+            for class_value, weight in self.class_weight_dict.items():
+                if class_labels and class_value in class_labels:
+                    label = f"Class {class_value} ({class_labels[class_value]})"
+                else:
+                    label = f"Class {class_value}"
+                md += f"- {label}: {weight:.3f}\n"
+            md += "\n"
+        return md
+
 
 @dataclass
 class OptimizationComparison:
