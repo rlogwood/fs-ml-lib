@@ -21,6 +21,7 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
                                      monitoring_explanation: Callable[[EarlyStopping, int], str],
                                      trade_off_discussion: Callable[[int, float], str],
                                      business_impact: Callable[[int, int, float, int, float], str],
+                                     executive_summary: Callable[[], str],
                                      class_labels: dict = None):
     #= lambda x: f"**{x.monitor}** is used to monitor training performance"):
     """
@@ -75,32 +76,13 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
 
     test_auc = model_eval_results.auc
     cm = model_eval_results.confusion_matrix
-    tn, fp, fn, tp = cm.ravel()
+    tn, fp, fn, tp = cm.flatten().tolist()
 
     # Convert numpy types to Python native types for formatting
-    tn = int(tn)
-    fp = int(fp)
-    fn = int(fn)
-    tp = int(tp)
-
-    # Calculate class distribution
-    # total_samples = result_obj.total_samples
-    #total_samples = result_obj.samples_after
-
-    # result = ImbalanceAnalysisResult(
-    #     n_classes=n_classes,
-    #     total_samples=int(total),
-    #     majority_class=class_labels[majority_idx],
-    #     majority_count=int(majority_count),
-    #     minority_class=class_labels[minority_idx],
-    #     minority_count=int(minority_count),
-    #     minority_percentage=f"{(minority_count / total) * 100:.2f}%",
-    #     imbalance_ratio=f"{ratio:.2f}:1",
-    #     severity=severity,
-    #     recommended_action=action,
-    #     class_analysis=class_analysis
-    # )
-
+    # tn = int(tn)
+    # fp = int(fp)
+    # fn = int(fn)
+    # tp = int(tp)
 
     best_threshold = model_eval_results.best_threshold
 
@@ -171,9 +153,7 @@ def generate_model_selection_summary(comparison: OptimizationComparison, best_re
     # Generate markdown
     md = f"""# Model Selection Summary: Findings and Motivations
 
-## Executive Summary
-After comprehensive experimentation with imbalance handling strategies and threshold optimization, we selected **{best_strategy}** with **early stopping on validation AUC** and **recall-weighted threshold optimization**. This configuration achieves **{recall_pct:.2f}% recall** on defaults, catching {defaults_caught} out of {total_defaults} actual defaults in the test set.
-
+{executive_summary}
 ---
 
 ## 1. Imbalance Handling Strategy Selection
@@ -259,8 +239,6 @@ Actual  Paid     {tn:,}      {fp:,}
 
 ## 5. Model Architecture
 
-
-
 **Neural Network Configuration**:
 ```
 {model_summary_str}
@@ -271,15 +249,6 @@ Actual  Paid     {tn:,}      {fp:,}
 
 {business_impact(defaults_caught, total_defaults, recall_pct, baseline_catch_rate, best_threshold)}
 ---
-
-## Next Steps
-
-1. **Feature Engineering**: Create interaction terms, risk scores, and temporal features
-2. **Alternative Models**: Compare against Random Forest, XGBoost, and Gradient Boosting
-3. **Ensemble Methods**: Combine multiple models for improved robustness
-4. **Hyperparameter Tuning**: Optimize learning rate, network depth, and dropout rates
-
-Our goal is to improve **AUC-ROC beyond {test_auc:.4f}** while maintaining **high recall (>95%)**.
 """
 
     display(Markdown(md))
