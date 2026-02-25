@@ -113,6 +113,8 @@ class ImbalanceTrainingResult:
     strategy: Union[ImbalanceStrategy, str]
     history: Any
     model: Any
+    X_val: np.ndarray
+    y_val: np.ndarray
     X_train_final: np.ndarray
     y_train_final: np.ndarray
     X_train_original: np.ndarray
@@ -127,7 +129,15 @@ class ImbalanceTrainingResult:
     # Validation metrics
     val_metrics: ValidationMetrics = None
 
-    def summary(self):
+    def label_for_class_value(self, class_value: int, class_labels: dict = None) -> str:
+        if class_labels and class_value in class_labels:
+            label = f"Class {class_value} ({class_labels[class_value]})"
+        else:
+            label = f"Class {class_value}"
+        #print("label for class value:{class_value} is:{label}")
+        return label
+
+    def summary(self, class_labels: dict = None):
         """Print a summary of the training configuration"""
         strategy_name = self.strategy.value if isinstance(self.strategy, ImbalanceStrategy) else self.strategy
         print(f"\n{'=' * 70}")
@@ -137,15 +147,18 @@ class ImbalanceTrainingResult:
         print(f"\nClass Distribution Before:")
         for cls, count in self.class_dist_before.items():
             pct = count / self.samples_before * 100
-            print(f"  Class {cls}: {count:,} ({pct:.1f}%)")
+            label = self.label_for_class_value(cls, class_labels)
+            print(f"  {label}: {count:,} ({pct:.1f}%)")
         print(f"\nClass Distribution After:")
         for cls, count in self.class_dist_after.items():
             pct = count / self.samples_after * 100
-            print(f"  Class {cls}: {count:,} ({pct:.1f}%)")
+            label = self.label_for_class_value(cls, class_labels)
+            print(f"  {label}: {count:,} ({pct:.1f}%)")
         if self.class_weight_dict:
             print(f"\nClass Weights Applied:")
             for cls, weight in self.class_weight_dict.items():
-                print(f"  Class {cls}: {weight:.4f}")
+                label = self.label_for_class_value(cls, class_labels)
+                print(f"  {label}: {weight:.4f}")
         if self.smote_ratio:
             print(f"\nSMOTE Ratio: {self.smote_ratio}")
 
@@ -172,10 +185,7 @@ class ImbalanceTrainingResult:
         if self.class_weight_dict:
             md += "**Calculated Class Weights**:\n"
             for class_value, weight in self.class_weight_dict.items():
-                if class_labels and class_value in class_labels:
-                    label = f"Class {class_value} ({class_labels[class_value]})"
-                else:
-                    label = f"Class {class_value}"
+                label = self.label_for_class_value(class_value, class_labels)
                 md += f"- {label}: {weight:.3f}\n"
             md += "\n"
         return md
@@ -372,14 +382,23 @@ def train_with_imbalance_handling(
     unique, counts = np.unique(y_train, return_counts=True)
     class_dist_before = dict(zip(unique.astype(int), counts.astype(int)))
 
-    # Calculate class weights if needed
-    if auto_calculate_weights and class_weight_dict is None:
-        if strategy in [ImbalanceStrategy.CLASS_WEIGHTS, ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS]:
+    # strategies ImbalanceStrategy.CLASS_WEIGHTS, ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS require class weights
+    if strategy in [ImbalanceStrategy.CLASS_WEIGHTS, ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS]:
+        # Calculate class weights if not supplied
+        if auto_calculate_weights:
+            if class_weight_dict is not None:
+                raise ValueError(f"class_weight_dict cannot be provided when auto_calculate_weights=True")
+
             classes = np.unique(y_train)
             weights = compute_class_weight('balanced', classes=classes, y=y_train)
             class_weight_dict = dict(zip(classes.astype(int), weights))
             if verbose:
                 print(f"\n📊 Auto-calculated class weights: {class_weight_dict}")
+    else:
+        # raise error for other strategies, class_weight_dict is not required
+        raise ValueError(
+            f"Class weights not supported for strategy {strategy}, use ImbalanceStrategy.CLASS_WEIGHTS or ImbalanceStrategy.SMOTE_PARTIAL_WEIGHTS"
+        )
 
     # Apply imbalance handling strategy
     if strategy == ImbalanceStrategy.NONE:
@@ -462,6 +481,8 @@ def train_with_imbalance_handling(
         strategy=strategy,
         history=history,
         model=model,
+        X_val=X_val,
+        y_val=y_val,
         X_train_final=X_train_final,
         y_train_final=y_train_final,
         X_train_original=X_train,
